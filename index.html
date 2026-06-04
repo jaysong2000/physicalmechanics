@@ -517,7 +517,7 @@
                 spaceCapsule.classList.remove('failing-structure');
                 spaceCapsule.style.filter = 'none';
 
-                if (simulatedTempCelsius > 350) {
+                if (simulatedTempCelsius > activeMaterial.meltPoint*0.7) {
                     shockwave.style.borderColor = `rgba(249, 115, 22, ${0.4 + intensity * 0.5})`;
                     shockwave.style.boxShadow = `-${5 + speed}px 0px ${10 + speed * 2}px rgba(249, 115, 22, 0.6)`;
                     metricTemp.style.color = 'var(--accent-orange)';
