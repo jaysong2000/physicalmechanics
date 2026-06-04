@@ -280,14 +280,6 @@
                     </div>
                     <input type="range" id="slide-size" min="9" max="70" value="28" step="1">
                 </div>
-
-                <div class="slider-wrapper">
-                    <div class="slider-labels">
-                        <span class="slider-name">Number of Particles</span>
-                        <span class="slider-value" id="val-density">65 Particles</span>
-                    </div>
-                    <input type="range" id="slide-density" min="10" max="120" value="65">
-                </div>
             </div>
         </div>
 
@@ -348,12 +340,13 @@
 
         let particles = [];
         
+        // Target constant molecule population locked at 50
+        const STATIC_DENSITY = 60;
+
         const slideSpeed = document.getElementById('slide-speed');
-        const slideDensity = document.getElementById('slide-density');
         const slideSize = document.getElementById('slide-size');
         
         const valSpeed = document.getElementById('val-speed');
-        const valDensity = document.getElementById('val-density');
         const valSize = document.getElementById('val-size');
 
         const selectMaterial = document.getElementById('select-material');
@@ -387,7 +380,6 @@
             }
 
             updateSpeed(physicalSpeed) {
-                // Map physical speed range (100 - 1500) smoothly down to a renderable canvas speed vector step
                 const normalizedSpeedScalar = physicalSpeed / 100;
                 const speed = normalizedSpeedScalar * this.personalSpeedModifier * 1.3;
                 this.vx = this.baseVx * speed;
@@ -430,7 +422,6 @@
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
-                // Base shadow glow threshold check on normalized slider evaluation
                 ctx.shadowBlur = (slideSpeed.value / 100) > 9 ? 6 : 0;
                 ctx.shadowColor = this.color;
                 ctx.fill();
@@ -440,18 +431,16 @@
         }
 
         function syncParticles() {
-            const targetCount = parseInt(slideDensity.value);
             const currentSpeed = parseInt(slideSpeed.value);
             const physicalMassU = parseInt(slideSize.value);
 
-            // Dynamically scale physical atomic mass values back down to visual element pixel radii (2 to 15)
             const renderRadius = ((physicalMassU - 9) / (70 - 9)) * (15 - 2) + 2;
 
-            while (particles.length < targetCount) {
+            while (particles.length < STATIC_DENSITY) {
                 particles.push(new Particle(null, null, renderRadius, currentSpeed));
             }
-            if (particles.length > targetCount) {
-                particles.length = targetCount;
+            if (particles.length > STATIC_DENSITY) {
+                particles.length = STATIC_DENSITY;
             }
 
             particles.forEach(p => {
@@ -463,11 +452,9 @@
         function updateMacroWorld() {
             const physicalVelocityMS = parseInt(slideSpeed.value);
             const physicalMassU = parseInt(slideSize.value);
-            const density = parseInt(slideDensity.value);
             const selectedMatKey = selectMaterial.value;
             const activeMaterial = materialsData[selectedMatKey];
 
-            // Normalize values back down to original math scale coordinates for calculation consistency
             const normalizedSpeed = physicalVelocityMS / 100;
             const normalizedSize = ((physicalMassU - 9) / (70 - 9)) * (15 - 2) + 2;
 
@@ -488,19 +475,19 @@
                 metricFriction.style.color = 'var(--text-main)';
             }
 
-            const simulatedTempCelsius = Math.floor((normalizedSpeed * normalizedSpeed * normalizedSize * (density / 12)) * 1.5 + 25);
+            // Temperature calculation with density locked at 50
+            const simulatedTempCelsius = Math.floor((normalizedSpeed * normalizedSpeed * normalizedSize * (STATIC_DENSITY / 12)) * 1.5 + 25);
 
             valSpeed.innerText = `${physicalVelocityMS} m/s`;
             valSize.innerText = `${physicalMassU} u`;
-            valDensity.innerText = `${density} Atoms`;
 
             valMaterialLimit.innerText = `Max Limit: ${activeMaterial.meltPoint}°C`;
 
             metricFriction.innerText = frictionLabel;
             metricTemp.innerText = `${simulatedTempCelsius.toLocaleString()}°C`;
 
-            const intensity = (normalizedSpeed / 15) * (density / 120);
-            shockwave.style.borderLeftWidth = `${4 + (density / 15)}px`;
+            const intensity = (normalizedSpeed / 15) * (STATIC_DENSITY / 120);
+            shockwave.style.borderLeftWidth = `${4 + (STATIC_DENSITY / 15)}px`;
             
             capsuleBody.style.fill = activeMaterial.baseColor;
 
@@ -544,7 +531,6 @@
         }
 
         slideSpeed.addEventListener('input', () => { syncParticles(); updateMacroWorld(); });
-        slideDensity.addEventListener('input', () => { syncParticles(); updateMacroWorld(); });
         slideSize.addEventListener('input', () => { syncParticles(); updateMacroWorld(); });
         selectMaterial.addEventListener('change', () => { updateMacroWorld(); });
 
