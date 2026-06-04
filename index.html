@@ -270,7 +270,7 @@
                         <span class="slider-name">Average Atom Velocity</span>
                         <span class="slider-value" id="val-speed">700 m/s</span>
                     </div>
-                    <input type="range" id="slide-speed" min="1" max="15" value="7">
+                    <input type="range" id="slide-speed" min="100" max="1500" value="700" step="10">
                 </div>
 
                 <div class="slider-wrapper">
@@ -278,7 +278,7 @@
                         <span class="slider-name">Individual Atom Mass</span>
                         <span class="slider-value" id="val-size">28 u</span>
                     </div>
-                    <input type="range" id="slide-size" min="2" max="15" value="6">
+                    <input type="range" id="slide-size" min="9" max="70" value="28" step="1">
                 </div>
 
                 <div class="slider-wrapper">
@@ -373,7 +373,7 @@
         };
 
         class Particle {
-            constructor(x, y, radius, targetSpeed) {
+            constructor(x, y, radius, physicalSpeed) {
                 this.x = x || Math.random() * canvas.width;
                 this.y = y || Math.random() * canvas.height;
                 this.radius = radius;
@@ -382,14 +382,14 @@
                 this.baseVx = Math.cos(angle);
                 this.baseVy = Math.sin(angle);
                 
-                // Add natural variance to each particle's unique speed multiplier
                 this.personalSpeedModifier = 0.6 + Math.random() * 0.8; 
-                this.updateSpeed(targetSpeed);
+                this.updateSpeed(physicalSpeed);
             }
 
-            updateSpeed(targetSpeed) {
-                // Combine the system target speed with the particle's personal variance
-                const speed = targetSpeed * this.personalSpeedModifier * 1.3;
+            updateSpeed(physicalSpeed) {
+                // Map physical speed range (100 - 1500) smoothly down to a renderable canvas speed vector step
+                const normalizedSpeedScalar = physicalSpeed / 100;
+                const speed = normalizedSpeedScalar * this.personalSpeedModifier * 1.3;
                 this.vx = this.baseVx * speed;
                 this.vy = this.baseVy * speed;
                 this.assignColor();
@@ -407,7 +407,6 @@
             }
 
             move() {
-                // Introduce Brownian-like micro shifts/jitters to simulate gas collision perturbations
                 if (Math.random() < 0.04) {
                     const jitterAngle = (Math.random() - 0.5) * 0.5;
                     const cos = Math.cos(jitterAngle);
@@ -431,7 +430,8 @@
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
-                ctx.shadowBlur = parseInt(slideSpeed.value) > 9 ? 6 : 0;
+                // Base shadow glow threshold check on normalized slider evaluation
+                ctx.shadowBlur = (slideSpeed.value / 100) > 9 ? 6 : 0;
                 ctx.shadowColor = this.color;
                 ctx.fill();
                 ctx.closePath();
@@ -442,32 +442,36 @@
         function syncParticles() {
             const targetCount = parseInt(slideDensity.value);
             const currentSpeed = parseInt(slideSpeed.value);
-            const currentSize = parseInt(slideSize.value);
+            const physicalMassU = parseInt(slideSize.value);
+
+            // Dynamically scale physical atomic mass values back down to visual element pixel radii (2 to 15)
+            const renderRadius = ((physicalMassU - 9) / (70 - 9)) * (15 - 2) + 2;
 
             while (particles.length < targetCount) {
-                particles.push(new Particle(null, null, currentSize, currentSpeed));
+                particles.push(new Particle(null, null, renderRadius, currentSpeed));
             }
             if (particles.length > targetCount) {
                 particles.length = targetCount;
             }
 
             particles.forEach(p => {
-                p.radius = currentSize;
+                p.radius = renderRadius;
                 p.updateSpeed(currentSpeed);
             });
         }
 
         function updateMacroWorld() {
-            const speed = parseInt(slideSpeed.value);
+            const physicalVelocityMS = parseInt(slideSpeed.value);
+            const physicalMassU = parseInt(slideSize.value);
             const density = parseInt(slideDensity.value);
-            const size = parseInt(slideSize.value);
             const selectedMatKey = selectMaterial.value;
             const activeMaterial = materialsData[selectedMatKey];
 
-            const physicalVelocityMS = speed * 100;
-            const physicalMassU = Math.round(size * 4.66);
+            // Normalize values back down to original math scale coordinates for calculation consistency
+            const normalizedSpeed = physicalVelocityMS / 100;
+            const normalizedSize = ((physicalMassU - 9) / (70 - 9)) * (15 - 2) + 2;
 
-            const rawViscosityScore = speed * size;
+            const rawViscosityScore = normalizedSpeed * normalizedSize;
             let frictionLabel = "Low";
             
             if (rawViscosityScore > 130) {
@@ -484,7 +488,7 @@
                 metricFriction.style.color = 'var(--text-main)';
             }
 
-            const simulatedTempCelsius = Math.floor((speed * speed * size * (density / 12)) * 1.5 + 25);
+            const simulatedTempCelsius = Math.floor((normalizedSpeed * normalizedSpeed * normalizedSize * (density / 12)) * 1.5 + 25);
 
             valSpeed.innerText = `${physicalVelocityMS} m/s`;
             valSize.innerText = `${physicalMassU} u`;
@@ -495,14 +499,14 @@
             metricFriction.innerText = frictionLabel;
             metricTemp.innerText = `${simulatedTempCelsius.toLocaleString()}°C`;
 
-            const intensity = (speed / 15) * (density / 120);
+            const intensity = (normalizedSpeed / 15) * (density / 120);
             shockwave.style.borderLeftWidth = `${4 + (density / 15)}px`;
             
             capsuleBody.style.fill = activeMaterial.baseColor;
 
             if (simulatedTempCelsius > activeMaterial.meltPoint) {
                 shockwave.style.borderColor = 'rgba(239, 68, 68, 0.8)';
-                shockwave.style.boxShadow = `-${12 + speed * 2}px 0px ${22 + speed * 3}px rgba(239, 68, 68, 0.9)`;
+                shockwave.style.boxShadow = `-${12 + normalizedSpeed * 2}px 0px ${22 + normalizedSpeed * 3}px rgba(239, 68, 68, 0.9)`;
                 metricTemp.style.color = 'var(--accent-red)';
                 
                 capsuleBody.style.fill = '#ef4444';
@@ -517,9 +521,9 @@
                 spaceCapsule.classList.remove('failing-structure');
                 spaceCapsule.style.filter = 'none';
 
-                if (simulatedTempCelsius > activeMaterial.meltPoint*0.6) {
+                if (simulatedTempCelsius > activeMaterial.meltPoint * 0.6) {
                     shockwave.style.borderColor = `rgba(249, 115, 22, ${0.4 + intensity * 0.5})`;
-                    shockwave.style.boxShadow = `-${5 + speed}px 0px ${10 + speed * 2}px rgba(249, 115, 22, 0.6)`;
+                    shockwave.style.boxShadow = `-${5 + normalizedSpeed}px 0px ${10 + normalizedSpeed * 2}px rgba(249, 115, 22, 0.6)`;
                     metricTemp.style.color = 'var(--accent-orange)';
                     
                     statusBanner.innerText = `${activeMaterial.name} is stressed, but holding`;
